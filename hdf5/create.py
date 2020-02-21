@@ -30,12 +30,12 @@ def run(PATH):
             if f[path_heado[i-1]].attrs['is Assembly'][0] == 1:
                 date_new = np.transpose(f[path_assembly[i-1]])
                 for j in range(len(date_new)):
-                    t = (i,j)
+                    t = (i,j+1)
                     diction[t] = date_new[j]
             else:
                 date_new = np.transpose(f[path_assembly[i-1]])
                 for j in range(1,len(date_new)+1):
-                    t = (i,j)
+                    t = (i,j+1)
                     diction[t] = []
     check(diction)
 
