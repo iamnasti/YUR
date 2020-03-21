@@ -171,7 +171,7 @@ def make_abl_cells(materials, hexsurface, surfaces, iass=0, densna=[]):
         cells[(iass, j)] = openmc.Cell(cell_id = iass*100 + j + 1)
         cells[(iass, j)].region = hexsurface & +surfaces[j] & -surfaces[j+1]
         cells[(iass, j)].temperature = 300.0
-        materials[(iass, j + 1)].add_nuclide("Na23", densna[j,iass]*0.6022/23.0)
+        materials[(iass, j + 1)].add_nuclide("Na23", densna[iass + 1][j]*0.6022/23.0)
         cells[(iass, j)].fill = materials[(iass, j + 1)]
         univ.add_cell(cells[(iass, j)])
     return univ
@@ -185,6 +185,8 @@ def make_model():
     print("Start")
     print(nuclide, element)
     diction_1, diction_2, diction_3, dzz, hss, rods, densna, type_fuel, type_assembly = run(n_arg)
+    return diction_1, nuclide, diction_2, element
+    # Here we stop!
     print('First point', dzz, hss,rods)
     outuniv, outsurface = _make_outer_universe()
     diction_1_out = translate_actinide(diction_1, nuclide, True)
@@ -211,10 +213,10 @@ def make_model():
     # Instantiate a Geometry, register the root Universe, and export to XML
     openmc_geometry = openmc.Geometry()
     openmc_geometry.root_universe = root_univ
-    openmc_geometry.export_to_xml()    
+    #openmc_geometry.export_to_xml()    
     materials_list = openmc_geometry.get_all_materials()
     materials_file = openmc.Materials([v for v in materials_list.values()])
-    materials_file.export_to_xml()
+    #materials_file.export_to_xml()
     # Instantiate a Settings object, set all runtime parameters, and export to XML
     settings_file = openmc.Settings()
     ##########################SETTINGS
@@ -247,6 +249,5 @@ def make_model():
     # Instantiate a Plots collection and export to XML
     plot_file = openmc.Plots([plot_1, plot_2])
     plot_file.export_to_xml()
+    
     print("%s seconds" % (time.time() - start_time))
-      
-
