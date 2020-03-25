@@ -467,17 +467,27 @@ def prepare_temperature_depended_mg(libgroup, conc, namenuclide, temperature):
     return openmclib
 
 
+import time
 res,resl, dicel, el = make_model()
 openmclib = {}
 libgroup = temp_libgroup(tempdata)
+nuclval = len(resl)
+nuclist, element_from, element_ind, element_val = get_unite_list(resl, el)
+concentration = np.zeros(len(nuclist))
+
 for key,value in res.items():
     conc = {}
     temp = {}
+    t0 = time.time()
+    concentration[:nuclval] = value
+    for f, i, v in zip(element_from, element_ind, element_val):
+        concentration[i] += dicel[key][f] * v
     key_1 = ''+str(key)+''
-    res[key],resl=collapse_into_nuclide(res[key],resl, dicel[key], el)
-    conc[key_1] = res[key]
+    #res[key],resl=collapse_into_nuclide(res[key],resl, dicel[key], el)
+    conc[key_1] = concentration
     temp[key_1] = 600.0  # for all zones a temperature the same : 600.0
     openmclib[key] = prepare_temperature_independed_mg(libgroup, conc, resl, tempdata, groups, temp)
+    print("Estimated time is {} min".format((time.time() - t0) * 25 * 1233 / 60))
 
 ######
 # key = (546,7)
@@ -490,6 +500,7 @@ for key,value in res.items():
 
 mg_cross_sections_file = openmc.MGXSLibrary(groups)
 print("next step")
-mg_cross_sections_file.add_xsdatas([openmclib[o] for o in openmclib])
+for k, v in openmclib:
+    mg_cross_sections_file.add_xsdatas([openmclib[k][o] for o in openmclib[k]])
 print("last step")
 mg_cross_sections_file.export_to_hdf5()
