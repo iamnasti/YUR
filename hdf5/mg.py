@@ -251,7 +251,25 @@ class groupsection:
             line = next(f)
             arr.extend([float(s) for s in line.split()])
         return np.array(arr)
-### Go into Function!!!
+# Instantiate the energy group data
+groups = openmc.mgxs.EnergyGroups(np.array(ENERGIES))
+
+
+
+def temp_interolate(temparray, T):
+    if (T <= temparray[0]):
+        return [(temparray[0], 1)]
+    elif (T >= temparray[-1]):
+        return [(temparray[-1], 1), (temparray[-1], 0)]
+    else:
+        for j,_t in enumerate(temparray):
+            if (_t > T):
+                i = j-1
+                t = temparray[i]
+                break
+        return [(i, (temparray[i+1] -T)/(temparray[i+1] - temparray[i])), (i + 1, (T - t)/(temparray[i+1] - temparray[i]))]
+        #return [(t, (temparray[i+1] -T)/(temparray[i+1] - temparray[i])), (temparray[i+1], (T - t)/(temparray[i+1] - temparray[i]))]
+
 def temp_libgroup(tempdata):
     for t in tempdata:
         tree = [tt for tt in os.walk(os.path.join(PATH, str(t)))]
@@ -262,100 +280,9 @@ def temp_libgroup(tempdata):
             #print("Temp {} : {} ".format(t, fn))
     return libgroup
 # return libgroup
-### Go into Function!!!
-"""
-conc = {"fuel" : [("U238" , 1.8744e-2), ("O16" , 0.039235), ("U235" , 8.737e-4)],
-        "clad" : [("Zr0" , 0.0423)],
-        "water" : [("H1_H2O" , 0.06694), ("O16" , 0.03347), ("B10" , 6.6262e-6), ("B11" , 2.6839E-5)]}
 
-conc = {"fuel" : [("U238" , 1.8744e-2), ("O16" , 0.039235), ("U235" , 8.737e-4), ("Xe135" , 9.4581E-9), ("Sm149" , 7.3667E-8)],
-        "clad" : [("Zr0" , 0.0423)],
-        "water" : [("H1_H2O" , 0.04783), ("O16" , 0.02391), ("B10" , 4.7344e-6), ("B11" , 1.9177E-5)]}
-mattemp = {"fuel" : 1027, "clad" : 579, "water" : 579}
-"""
+openmclib = {}
 
-
-def temp_interolate(temparray, T):
-    if (T <= temparray[0]):
-        return [(temparray[0], 1)]
-    elif (T >= temparray[-1]):
-        return [(temparray[-1], 1)]
-    else:
-        for j,_t in enumerate(temparray):
-            if (_t > T):
-                i = j-1
-                t = temparray[i]
-                break
-        return [(t, (temparray[i+1] -T)/(temparray[i+1] - temparray[i])), (temparray[i+1], (T - t)/(temparray[i+1] - temparray[i]))]
-
-
-
-# TEMPERATURE INDEPENDENSE CASE
-"""
-for name, val in conc.items():
-    openmclib[name] = openmc.XSdata(name, groups)
-    openmclib[name].order = 1
-    stot = np.zeros(len(ENERGIES) - 1, dtype=np.double)
-    sabs = np.zeros(len(ENERGIES) - 1, dtype=np.double)
-    scapt = np.zeros(len(ENERGIES) - 1, dtype=np.double)
-    sf = np.zeros(len(ENERGIES) - 1, dtype=np.double)
-    nusf = np.zeros(len(ENERGIES) - 1, dtype=np.double)
-    chi = np.zeros(len(ENERGIES) - 1, dtype=np.double)
-    scatter = np.zeros((len(ENERGIES) - 1, len(ENERGIES) - 1, 2), dtype = np.double)
-    concentration = 0.0
-    for v in val:
-        for el in temp_interolate(tempdata, mattemp[name]):
-            tt = el[0]; wt = el[1]
-            stot += libgroup[tt][v[0]].stot * v[1] * wt
-            sabs += libgroup[tt][v[0]].sabs * v[1] * wt
-            scapt += libgroup[tt][v[0]].scapt * v[1] * wt
-            sf += libgroup[tt][v[0]].sf * v[1] * wt
-            nusf += libgroup[tt][v[0]].nusf * v[1] * wt
-            scatter += libgroup[tt][v[0]].xsmatrix * v[1] * wt
-        if (libgroup[300][v[0]].sf.sum() > 0):
-            concentration += v[1]
-            chi += libgroup[300][v[0]].schi * v[1]
-    if (concentration > 0):
-        chi = chi/concentration
-    openmclib[name].set_total(stot, temperature=294.)
-    openmclib[name].set_absorption(sabs, temperature=294.)
-    openmclib[name].set_scatter_matrix(scatter, temperature=294.)
-    openmclib[name].set_fission(sf, temperature=294.)
-    openmclib[name].set_nu_fission(nusf, temperature=294.)
-    openmclib[name].set_chi(chi, temperature=294.)
-
-# TEMPERATURE DEPENDET CASE
-for name, val in conc.items():
-    openmclib[name] = openmc.XSdata(name, groups, temperatures=tempdata)
-    openmclib[name].order = 1
-    for tt in tempdata:
-        stot = np.zeros(len(ENERGIES) - 1, dtype=np.double)
-        sabs = np.zeros(len(ENERGIES) - 1, dtype=np.double)
-        scapt = np.zeros(len(ENERGIES) - 1, dtype=np.double)
-        sf = np.zeros(len(ENERGIES) - 1, dtype=np.double)
-        nusf = np.zeros(len(ENERGIES) - 1, dtype=np.double)
-        chi = np.zeros(len(ENERGIES) - 1, dtype=np.double)
-        scatter = np.zeros((len(ENERGIES) - 1, len(ENERGIES) - 1, 2), dtype=np.double)
-        concentration = 0.0
-        for v in val:
-            stot += libgroup[tt][v[0]].stot * v[1]
-            sabs += libgroup[tt][v[0]].sabs * v[1]
-            scapt += libgroup[tt][v[0]].scapt * v[1]
-            sf += libgroup[tt][v[0]].sf * v[1]
-            nusf += libgroup[tt][v[0]].nusf * v[1]
-            scatter += libgroup[tt][v[0]].xsmatrix * v[1]
-            if (libgroup[tt][v[0]].sf.sum() > 0):
-                concentration += v[1]
-                chi += libgroup[tt][v[0]].schi * v[1]
-        if (concentration > 0):
-            chi = chi / concentration
-        openmclib[name].set_total(stot, temperature=tt)
-        openmclib[name].set_absorption(sabs, temperature=tt)
-        openmclib[name].set_scatter_matrix(scatter, temperature=tt)
-        openmclib[name].set_fission(sf, temperature=tt)
-        openmclib[name].set_nu_fission(nusf, temperature=tt)
-        openmclib[name].set_chi(chi, temperature=tt)
-"""
 def prepare_temperature_independed_mg(libgroup, conc, namenuclide, tempdata,
                                                                      groups, mattemp):
     """
@@ -371,8 +298,6 @@ def prepare_temperature_independed_mg(libgroup, conc, namenuclide, tempdata,
     - a list of nuclide names;
     :param temperature:
     - dictionary with name of material : temperature value;
-    groups - global variable groups
-    mattemp - dictionary with name of material : temperature
     :return:
     - dictionary with name of material : openmc.MGXS class element
     """
@@ -394,7 +319,6 @@ def prepare_temperature_independed_mg(libgroup, conc, namenuclide, tempdata,
                 tt = el[0]
                 wt = el[1]
                 if (n in libgroup[tt].keys()):
-                    print("Nuclide ",n, tt)
                     stot += libgroup[tt][n].stot * v * wt
                     sabs += libgroup[tt][n].sabs * v * wt
                     scapt += libgroup[tt][n].scapt * v * wt
@@ -413,6 +337,78 @@ def prepare_temperature_independed_mg(libgroup, conc, namenuclide, tempdata,
         openmclib[name].set_fission(sf, temperature=tempdata[0])
         openmclib[name].set_nu_fission(nusf, temperature=tempdata[0])
         openmclib[name].set_chi(chi, temperature=tempdata[0])
+    return openmclib
+#
+def prepare_mg(libgroup, conc, namenuclide, tempdata, groups, mattemp):
+    """
+    Prepare multigroup data for calculation based with temperature independent
+    constant
+    Paramertres:
+    -----------
+    libgroup : dictionary
+    {temperature : dictonary { name of nuclide : element groupsection class }};
+    :param conc: dict
+    - dictionary with name of material : np.array - R*8 concentration of nuclide;
+    :param namenuclide:
+    - a list of nuclide names;
+    :param temperature:
+    - dictionary with name of material : temperature value;
+    :return:
+    - dictionary with name of material : openmc.MGXS class element
+    """
+    # TEMPERATURE INDEPENDET CASE
+    openmclib = {}
+    t0 = time.time()
+    nsize = len([k for k in conc])
+    values = np.array([v for v in conc.values()])
+    values = values.reshape(nsize, len(values[0]))
+    indices = nsize * [(tempdata[0], 1.0)]
+    indarray=np.zeros((nsize, 2), dtype = np.int)
+    wgtarray=np.zeros((nsize, 2), dtype = np.double)
+    stot = np.zeros((nsize, len(ENERGIES) - 1), dtype=np.double)
+    sabs = np.zeros((nsize,len(ENERGIES) - 1), dtype=np.double)
+    scapt = np.zeros((nsize,len(ENERGIES) - 1), dtype=np.double)
+    sf = np.zeros((nsize,len(ENERGIES) - 1), dtype=np.double)
+    nusf = np.zeros((nsize,len(ENERGIES) - 1), dtype=np.double)
+    chi = np.zeros((nsize,len(ENERGIES) - 1), dtype=np.double)
+    scatter = np.zeros((nsize,len(ENERGIES) - 1, len(ENERGIES) - 1, 2),
+                        dtype=np.double)
+    for i, name in enumerate(mattemp.keys()):
+        openmclib[name] = openmc.XSdata(name, groups, temperatures=[tempdata[0]])
+        openmclib[name].order = 1
+        indices[i] = temp_interolate(tempdata, mattemp[name])
+        indarray[i, 0]= indices[i][0][0];indarray[i, 1]= indices[i][1][0]
+        wgtarray[i, 0]= indices[i][0][1];wgtarray[i, 1]= indices[i][1][1]
+    nuclind = np.zeros((len(namenuclide), len(tempdata)), dtype=np.int)
+    for i, n in enumerate(namenuclide):
+        for j, tt in enumerate(tempdata):
+            if (n in libgroup[tt].keys()):
+                nuclind[i][j] = i + 1
+    t1 = time.time()
+    for i in range(nsize):
+        for ind in range(len(namenuclide)):
+            for j in [0, 1]:
+                if (nuclind[ind][indarray[i, j]] > 0):
+                    stot[i, :] += libgroup[tempdata[indarray[i, j]]][namenuclide[ind]].stot * values[i, ind] * wgtarray[i, j]
+                    sabs[i, :] += libgroup[tempdata[indarray[i, j]]][namenuclide[ind]].sabs * values[i, ind] * wgtarray[i, j]
+                    scapt[i, :] += libgroup[tempdata[indarray[i, j]]][namenuclide[ind]].scapt * values[i, ind] * wgtarray[i, j]
+                    sf[i, :] += libgroup[tempdata[indarray[i, j]]][namenuclide[ind]].sf * values[i, ind] * wgtarray[i, j]
+                    nusf[i, :] += libgroup[tempdata[indarray[i, j]]][namenuclide[ind]].nusf * values[i, ind] * wgtarray[i, j]
+                    scatter[i, :, :] += libgroup[tempdata[indarray[i, j]]][namenuclide[ind]].xsmatrix * values[i, ind] * wgtarray[i, j]
+            concentration = 0.0
+            if (namenuclide[ind] in libgroup[tempdata[0]].keys()):
+                if (libgroup[tempdata[0]][namenuclide[ind]].sf.sum() > 0):
+                    concentration += values[i, ind]
+                    chi[i, :] += libgroup[tempdata[0]][namenuclide[ind]].schi * values[i, ind]
+    for i, name in enumerate(conc.keys()):
+        openmclib[name]._total[0]=stot[i, :]
+        openmclib[name]._absorption[0]=sabs[i, :]
+        openmclib[name]._scatter_matrix[0]=scatter[i, :, :]
+        openmclib[name]._fission[0]=sf[i, :]
+        if (sum(sf[i, :]) > 0):
+            openmclib[name]._fissionable = True
+        openmclib[name]._nu_fission[0]=nusf[i, :]
+        openmclib[name]._chi[0]=chi[i, :]
     return openmclib
 #
 def prepare_temperature_depended_mg(libgroup, conc, namenuclide, temperature):
@@ -467,29 +463,81 @@ def prepare_temperature_depended_mg(libgroup, conc, namenuclide, temperature):
     return openmclib
 
 
-res,resl, dicel, el = make_model()
-openmclib = {}
-libgroup = temp_libgroup(tempdata)
-for key,value in res.items():
-    conc = {}
-    temp = {}
-    key_1 = ''+str(key)+''
-    res[key],resl=collapse_into_nuclide(res[key],resl, dicel[key], el)
-    conc[key_1] = res[key]
-    temp[key_1] = 600.0  # for all zones a temperature the same : 600.0
-    openmclib[key] = prepare_temperature_independed_mg(libgroup, conc, resl, tempdata, groups, temp)
 
-######
-# key = (546,7)
-# key_1 = ''+str(key)+''
-# res[key],resl=collapse_into_nuclide(res[key],resl, dicel[key], el) # from Table_Mend.py
-# conc = {}; conc[key_1] = res[key]
-# temp = {}; temp[key_1] = 600.0 # for all zones a temperature the same : 600.0
-# openmclib[key] = prepare_temperature_independed_mg(libgroup, conc, resl, tempdata, groups, temp)
-######
+def make_libgroup_micro(nameoflib):
+    libgroup = temp_libgroup(tempdata)
+    openmclib = {}
+    for tt in tempdata:
+        for n in libgroup[tt]:
+            scatter = np.zeros((len(ENERGIES) - 1, len(ENERGIES) - 1, 2), dtype=np.double)
+            if (n in openmclib):
+                openmclib[n].set_total(libgroup[tt][n].stot, temperature=tt)
+                openmclib[n].set_absorption(libgroup[tt][n].sabs, temperature=tt)
+                scatter += libgroup[tt][n].xsmatrix*1.0
+                openmclib[n].set_scatter_matrix(scatter, temperature=tt)
+                openmclib[n].set_fission(libgroup[tt][n].sf, temperature=tt)
+                openmclib[n].set_nu_fission(libgroup[tt][n].nusf, temperature=tt)
+                openmclib[n].set_chi(libgroup[tt][n].schi, temperature=tt)
+            else:
+                openmclib[n] = openmc.XSdata(n, groups, temperatures=tempdata)
+                if (libgroup[tt][n].xsmatrix.shape[-1] < 2):
+                    openmclib[n].order = 0
+                else:
+                    openmclib[n].order = 1
+                openmclib[n].order = 1
+                openmclib[n].set_total(libgroup[tt][n].stot, temperature=tt)
+                openmclib[n].set_absorption(libgroup[tt][n].sabs, temperature=tt)
+                scatter += libgroup[tt][n].xsmatrix*1.0
+                openmclib[n].set_scatter_matrix(scatter, temperature=tt)
+                openmclib[n].set_fission(libgroup[tt][n].sf, temperature=tt)
+                openmclib[n].set_nu_fission(libgroup[tt][n].nusf, temperature=tt)
+                openmclib[n].set_chi(libgroup[tt][n].schi, temperature=tt)
+    mg_cross_sections_file = openmc.MGXSLibrary(groups)
+    mg_cross_sections_file.add_xsdatas([openmclib[o] for o in openmclib])
+    mg_cross_sections_file.export_to_hdf5(nameoflib)
 
-mg_cross_sections_file = openmc.MGXSLibrary(groups)
-print("next step")
-mg_cross_sections_file.add_xsdatas([openmclib[o] for o in openmclib])
-print("last step")
-mg_cross_sections_file.export_to_hdf5()
+
+def make_libgroup_macro(nameoflib):
+   res,resl, dicel, el, rodel, dolna = make_model()
+   libgroup = temp_libgroup(tempdata)
+   nuclval = len(resl)
+   indexNa = el.index("Na")
+   for key, value in dicel.items():
+       value[indexNa] = densna(600.0) * 0.6022 / 23 * dolna[key[0]][key[1]]
+   for key, value in rodel.items():
+       value[indexNa] = densna(600.0) * 0.6022 / 23 * dolna[key[0]][key[1]]
+   nuclist, element_from, element_ind, element_val = get_unite_list(resl, el)
+   concentration = np.zeros(len(nuclist))
+   conc = {}
+   temp = {}
+   for key,value in res.items():
+       t0 = time.time()
+       concentration[:nuclval] = value
+       for f, i, v in zip(element_from, element_ind, element_val):
+           concentration[i] += dicel[key][f] * v
+       key_1 = ''+str(key)+''
+       conc[key_1] = concentration
+       temp[key_1] = 600.0  # for all zones a temperature the same : 600.0
+       concentration = 0.0*concentration[:]
+       print("Estimated time is {} min".format((time.time() - t0)))
+   rodnuclist, element_from, element_ind, element_val = get_unite_list([], el)
+   concentration = np.zeros(len(rodnuclist))
+   concrod = {}
+   temprod = {}
+   for key,value in rodel.items():
+       t0 = time.time()
+       for f, i, v in zip(element_from, element_ind, element_val):
+           concentration[i] += rodel[key][f] * v
+       key_1 = ''+str(key)+''
+       concrod[key_1] = concentration
+       temprod[key_1] = 600.0  # for all zones a temperature the same : 600.0
+       concentration = 0.0*concentration[:]
+       print("Estimated time is {} min".format((time.time() - t0)))
+   openmclib = prepare_mg(libgroup, conc, resl, tempdata,
+                             groups, temp)
+   openmclib.update(prepare_mg(libgroup, concrod, rodnuclist, tempdata,
+                                 groups, temprod))
+   mg_cross_sections_file = openmc.MGXSLibrary(groups)
+   mg_cross_sections_file.add_xsdatas([openmclib[o] for o in openmclib])
+   mg_cross_sections_file.export_to_hdf5(nameoflib)
+
